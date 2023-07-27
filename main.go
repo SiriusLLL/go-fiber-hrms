@@ -6,6 +6,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -29,7 +30,7 @@ type Employee struct {
 
 func Connect() error {
 
-	// // NewClient() 已被弃用，使用Connect()直接创建并连接mongoDB客户端
+	// // 代码提示工具显示 NewClient() 已被弃用，使用 Connect() 直接创建并连接mongoDB客户端
 
 	// client, err := mongo.NewClient(options.Client().ApplyURI(mongoURI))
 	// if err != nil {
@@ -43,7 +44,7 @@ func Connect() error {
 	// 	return err1
 	// }
 
-	// 创建并连接mongoDB客户端
+	// 使用 Connect() 直接创建并连接mongoDB客户端
 	client, err := mongo.Connect(context.TODO(), options.Client().ApplyURI(mongoURI))
 	if err != nil {
 		log.Fatal(err)
@@ -74,7 +75,7 @@ func GetEmployee(c *fiber.Ctx) error {
 }
 
 func CreateEmployee(c *fiber.Ctx) error {
-	collection := mg.DB.Collection("employee")
+	collection := mg.DB.Collection("employees")
 	employee := new(Employee)
 
 	if err := c.BodyParser(employee); err != nil {
@@ -95,6 +96,40 @@ func CreateEmployee(c *fiber.Ctx) error {
 	return c.Status(201).JSON(createEmployee)
 }
 
+func UpdateEmployee(c *fiber.Ctx) error {
+	id := c.Params("id")
+	employeeId, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return c.Status(400).SendString(err.Error())
+	}
+
+	employee := new(Employee)
+	if err := c.BodyParser(employee); err != nil {
+		return c.Status(400).SendString(err.Error())
+	}
+
+	query := bson.D{{Key: "_id", Value: employeeId}}
+	update := bson.D{
+		{
+			Key: "$set",
+			Value: bson.D{
+				{Key: "name", Value: employee.Name},
+				{Key: "salary", Value: employee.Salary},
+				{Key: "age", Value: employee.Age},
+			},
+		}}
+	err = mg.DB.Collection("employees").FindOneAndUpdate(c.Context(), query, update).Err()
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return c.SendStatus(400)
+		}
+		return c.SendStatus(500)
+	}
+
+	employee.ID = id
+	return c.Status(200).JSON(employee)
+}
+
 func main() {
 
 	if err := Connect(); err != nil {
@@ -104,7 +139,6 @@ func main() {
 	app := fiber.New()
 
 	app.Get("/employee", GetEmployee)
-
 	app.Post("/employee", CreateEmployee)
 	app.Put("/employee/:id")
 	app.Delete("/employee/:id")
