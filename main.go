@@ -118,6 +118,7 @@ func UpdateEmployee(c *fiber.Ctx) error {
 				{Key: "age", Value: employee.Age},
 			},
 		}}
+
 	err = mg.DB.Collection("employees").FindOneAndUpdate(c.Context(), query, update).Err()
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -130,6 +131,27 @@ func UpdateEmployee(c *fiber.Ctx) error {
 	return c.Status(200).JSON(employee)
 }
 
+func DeleteEmployee(c *fiber.Ctx) error {
+	id := c.Params("id")
+	employeeID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return c.Status(400).SendString(err.Error())
+	}
+
+	query := bson.D{{Key: "_id", Value: employeeID}}
+	result, err1 := mg.DB.Collection("employees").DeleteOne(c.Context(), &query)
+	if err1 != nil {
+		return c.Status(500).SendString(err.Error())
+	}
+
+	if result.DeletedCount < 1 {
+		return c.SendStatus(404)
+	}
+
+	return c.Status(200).JSON("record delete")
+
+}
+
 func main() {
 
 	if err := Connect(); err != nil {
@@ -140,6 +162,8 @@ func main() {
 
 	app.Get("/employee", GetEmployee)
 	app.Post("/employee", CreateEmployee)
-	app.Put("/employee/:id")
-	app.Delete("/employee/:id")
+	app.Put("/employee/:id", UpdateEmployee)
+	app.Delete("/employee/:id", DeleteEmployee)
+
+	log.Fatal(app.Listen(":3000"))
 }
