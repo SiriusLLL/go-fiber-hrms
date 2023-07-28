@@ -89,11 +89,12 @@ func CreateEmployee(c *fiber.Ctx) error {
 	}
 
 	filter := bson.D{{Key: "_id", Value: insertionResult.InsertedID}}
-	createRecord := collection.FindOne(c.Context(), filter)
-	createEmployee := &Employee{}
-	createRecord.Decode(createEmployee)
+	createdRecord := collection.FindOne(c.Context(), filter)
 
-	return c.Status(201).JSON(createEmployee)
+	createdEmployee := &Employee{}
+	createdRecord.Decode(createdEmployee)
+
+	return c.Status(201).JSON(createdEmployee)
 }
 
 func UpdateEmployee(c *fiber.Ctx) error {
